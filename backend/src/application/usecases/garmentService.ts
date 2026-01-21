@@ -1,6 +1,7 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { myappDB } from '../../infra/db/pool';
-import { executeQuery } from '../../infra/db/query';
+import { executeQuery, transactionQuery } from '../../infra/db/query';
+import { withTransaction } from '../../infra/db/transaction';
 import { Garment, LifecycleState } from '../../domain/types';
 
 export class GarmentService {
@@ -52,6 +53,25 @@ export class GarmentService {
       change_note?: string;
     }
   ): Promise<boolean> {
+    // Validate material percentages for APPROVED or MASS_PRODUCTION states
+    if (
+      data.lifecycle_state === LifecycleState.APPROVED ||
+      data.lifecycle_state === LifecycleState.MASS_PRODUCTION
+    ) {
+      const [rows] = await executeQuery<RowDataPacket[]>(
+        myappDB,
+        'SELECT SUM(percentage) as total FROM garment_materials WHERE garment_id = ?',
+        [id]
+      );
+
+      const total = (rows[0] as any)?.total || 0;
+      if (total !== 100) {
+        throw new Error(
+          `Cannot transition to ${data.lifecycle_state}: material percentages must sum to 100% (current: ${total}%)`
+        );
+      }
+    }
+
     const updates: string[] = [];
     const values: any[] = [];
 
@@ -117,15 +137,33 @@ export class GarmentService {
       throw new Error('Percentage must be between 0 and 100');
     }
 
-    const [result] = await executeQuery<ResultSetHeader>(
-      myappDB,
-      `INSERT INTO garment_materials (garment_id, material_id, percentage)
-       VALUES (?, ?, ?)
-       ON DUPLICATE KEY UPDATE percentage = ?`,
-      [garmentId, materialId, percentage, percentage]
-    );
+    return withTransaction(myappDB, async (conn) => {
+      // Check current total percentage
+      const [existing] = await transactionQuery<RowDataPacket[]>(
+        conn,
+        `SELECT SUM(percentage) as total
+         FROM garment_materials
+         WHERE garment_id = ? AND material_id != ?`,
+        [garmentId, materialId]
+      );
 
-    return result.affectedRows > 0;
+      const currentTotal = (existing[0] as any)?.total || 0;
+      const newTotal = currentTotal + percentage;
+
+      if (newTotal > 100) {
+        throw new Error(`Total material percentage would exceed 100% (current: ${currentTotal}%, adding: ${percentage}%)`);
+      }
+
+      const [result] = await transactionQuery<ResultSetHeader>(
+        conn,
+        `INSERT INTO garment_materials (garment_id, material_id, percentage)
+         VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE percentage = ?`,
+        [garmentId, materialId, percentage, percentage]
+      );
+
+      return result.affectedRows > 0;
+    });
   }
 
   async getMaterials(garmentId: number): Promise<any[]> {
@@ -141,14 +179,42 @@ export class GarmentService {
   }
 
   async addAttribute(garmentId: number, attributeId: number): Promise<boolean> {
-    const [result] = await executeQuery<ResultSetHeader>(
-      myappDB,
-      `INSERT IGNORE INTO garment_attributes (garment_id, attribute_id)
-       VALUES (?, ?)`,
-      [garmentId, attributeId]
-    );
+    return withTransaction(myappDB, async (conn) => {
+      // Check for incompatibilities within the transaction
+      const [existingAttrs] = await transactionQuery<RowDataPacket[]>(
+        conn,
+        'SELECT attribute_id FROM garment_attributes WHERE garment_id = ?',
+        [garmentId]
+      );
 
-    return result.affectedRows > 0;
+      const existingIds = existingAttrs.map((row: any) => row.attribute_id);
+      const allIds = [...existingIds, attributeId];
+
+      // Check incompatibilities
+      if (allIds.length > 1) {
+        const [conflicts] = await transactionQuery<RowDataPacket[]>(
+          conn,
+          `SELECT COUNT(*) as count
+           FROM attribute_incompatibilities
+           WHERE attribute_id_a IN (?) AND attribute_id_b IN (?)`,
+          [allIds, allIds]
+        );
+
+        if ((conflicts[0] as any).count > 0) {
+          throw new Error('Attribute incompatibility detected');
+        }
+      }
+
+      // Insert the attribute
+      const [result] = await transactionQuery<ResultSetHeader>(
+        conn,
+        `INSERT IGNORE INTO garment_attributes (garment_id, attribute_id)
+         VALUES (?, ?)`,
+        [garmentId, attributeId]
+      );
+
+      return result.affectedRows > 0;
+    });
   }
 
   async getAttributes(garmentId: number): Promise<any[]> {
