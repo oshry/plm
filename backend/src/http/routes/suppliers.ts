@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { SupplierService } from '../services/supplierService';
+import { SupplierService } from '../../application/usecases/supplierService';
 
 const router = Router();
 const supplierService = new SupplierService();

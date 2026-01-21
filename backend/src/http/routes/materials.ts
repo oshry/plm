@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { MaterialService } from '../services/materialService';
+import { MaterialService } from '../../application/usecases/materialService';
 
 const router = Router();
 const materialService = new MaterialService();

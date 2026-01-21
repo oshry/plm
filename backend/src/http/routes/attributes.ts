@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { AttributeService } from '../services/attributeService';
+import { AttributeService } from '../../application/usecases/attributeService';
 
 const router = Router();
 const attributeService = new AttributeService();

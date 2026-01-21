@@ -1,7 +1,7 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
-import { myappDB } from '../db/pool';
-import { executeQuery } from '../db/query';
-import { Supplier, GarmentSupplier, SupplierStatus } from '../types';
+import { myappDB } from '../../infra/db/pool';
+import { executeQuery } from '../../infra/db/query';
+import { Supplier, GarmentSupplier, SupplierStatus } from '../../domain/types';
 
 export class SupplierService {
   async getAll(): Promise<Supplier[]> {

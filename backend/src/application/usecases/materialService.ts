@@ -1,7 +1,7 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
-import { myappDB } from '../db/pool';
-import { executeQuery } from '../db/query';
-import { Material } from '../types';
+import { myappDB } from '../../infra/db/pool';
+import { executeQuery } from '../../infra/db/query';
+import { Material } from '../../domain/types';
 
 export class MaterialService {
   async getAll(): Promise<Material[]> {

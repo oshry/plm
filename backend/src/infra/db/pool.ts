@@ -5,7 +5,7 @@ import mysql, {
   RowDataPacket,
   ProcedureCallPacket,
 } from "mysql2/promise";
-import { config } from "../config";
+import { config } from "../../config";
 
 declare module "mysql2/promise" {
   interface PoolCluster {

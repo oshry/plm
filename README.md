@@ -11,14 +11,14 @@ A full-stack Product Lifecycle Management system for the fashion industry, built
 - Supplier workflow (offers, samples, status transitions)
 - Design evolution tracking (base_design_id)
 
-**🔧 Frontend** - Basic setup ready for development
+**✅ Frontend Complete** - React with Tailwind CSS
 
 **📊 Database** - Schema loaded with seed data
 
 ## 🏗️ Architecture
 
 ### Tech Stack
-- **Frontend**: React 18 with TypeScript, Vite
+- **Frontend**: React 18 with TypeScript, Vite, Tailwind CSS
 - **Backend**: Node.js with Express, TypeScript, MySQL2
 - **Database**: MySQL 8 (raw SQL with connection pooling)
 - **Package Manager**: pnpm (workspace monorepo)
@@ -29,19 +29,34 @@ A full-stack Product Lifecycle Management system for the fashion industry, built
 plm/
 ├── backend/                 # Node.js API server
 │   ├── src/
+│   │   ├── http/           # HTTP layer
+│   │   │   ├── routes/     # API route definitions
+│   │   │   ├── controllers/# Request handlers (empty for now)
+│   │   │   └── middleware/ # HTTP middleware (empty for now)
+│   │   ├── application/    # Application layer
+│   │   │   ├── usecases/   # Business logic orchestration
+│   │   │   └── errors/     # Application errors (empty for now)
+│   │   ├── domain/         # Domain layer
+│   │   │   ├── rules/      # Business rules (empty for now)
+│   │   │   └── types/      # Domain types and enums
+│   │   ├── infra/          # Infrastructure layer
+│   │   │   ├── db/         # Database connection and queries
+│   │   │   │   ├── pool.ts # MySQL2 connection pool
+│   │   │   │   └── sql/    # SQL schema and migrations
+│   │   │   └── repositories/# Data access (empty for now)
 │   │   ├── config/         # Configuration management
-│   │   ├── entities/       # TypeORM entities (to be created)
-│   │   ├── migrations/     # Database migrations
 │   │   ├── utils/          # Utilities (logger, etc.)
-│   │   ├── data-source.ts  # TypeORM data source
 │   │   └── index.ts        # Application entry point
 │   ├── Dockerfile
 │   └── package.json
 ├── frontend/               # React application
 │   ├── src/
-│   │   ├── App.tsx         # Main application component
-│   │   ├── main.tsx        # React entry point
-│   │   └── index.css       # Global styles
+│   │   ├── api/           # API client
+│   │   ├── components/    # React components
+│   │   ├── types/         # TypeScript types
+│   │   ├── App.tsx        # Main application component
+│   │   ├── main.tsx       # React entry point
+│   │   └── index.css      # Tailwind CSS
 │   ├── Dockerfile
 │   └── package.json
 ├── docker-compose.yml      # Multi-container orchestration
@@ -79,27 +94,43 @@ plm/
    docker exec -i myapp-db mysql -u plm_user -pplm_password fashion_plm < backend/src/db/seed.sql
    ```
 
-4. **Start backend (local development)**
+4. **Configure environment variables**
+   ```bash
+   # Backend
+   cp backend/.env.example backend/.env
+   
+   # Frontend
+   cp frontend/.env.example frontend/.env
+   ```
+
+5. **Start backend**
    ```bash
    cd backend
    pnpm dev
    ```
 
-5. **Access the application**
+6. **Start frontend**
+   ```bash
+   cd frontend
+   pnpm dev
+   ```
+
+7. **Access the application**
+   - Frontend: http://localhost:5173
    - Backend API: http://localhost:3000
    - Health check: http://localhost:3000/health
-   - API overview: http://localhost:3000/api
 
-6. **Test the API**
-   ```bash
-   # List garments
-   curl http://localhost:3000/api/garments | jq
-   
-   # Get garment with materials and attributes
-   curl http://localhost:3000/api/garments/1 | jq
-   
-   # See API_TESTING.md for complete examples
-   ```
+### Testing the API
+
+```bash
+# List garments
+curl http://localhost:3000/api/garments | jq
+
+# Get garment with materials and attributes
+curl http://localhost:3000/api/garments/1 | jq
+
+# See API_TESTING.md for complete examples
+```
 
 ### Development Without Docker
 
@@ -146,39 +177,45 @@ If you prefer to run services locally:
 docker exec -it plm-mysql mysql -u plm_user -pplm_password fashion_plm
 ```
 
-### TypeORM Configuration
-- **Synchronize**: Enabled in development (auto-creates tables)
-- **Logging**: Enabled in development
-- **Entities**: `backend/src/entities/**/*.ts`
-- **Migrations**: `backend/src/migrations/**/*.ts`
+### Database Schema
+The database includes 8 tables with proper relationships:
+- `garments` - Product information and lifecycle state
+- `materials` - Available materials (cotton, denim, etc.)
+- `attributes` - Product attributes (sleeve type, category, etc.)
+- `suppliers` - Supplier information
+- `garment_materials` - Material composition with percentages
+- `garment_attributes` - Garment attribute assignments
+- `garment_suppliers` - Supplier relationships and status
+- `attribute_incompatibilities` - Business rules
 
-## 📋 Key Features (To Be Implemented)
+## 📋 Key Features
 
 ### 1. Garment Management
-- CRUD operations for garments
-- Material composition tracking (denim, lycra, cotton, etc.)
-- Attribute management (sleeve type, neckline, category, etc.)
+- Full CRUD operations
+- Material composition tracking with percentages
+- Attribute management with incompatibility validation
+- Lifecycle state progression
 
 ### 2. Design Evolution
-- Parent-child relationships for garment variations
-- Version history tracking
-- Design iteration management
+- Parent-child relationships via `base_design_id`
+- Change notes for variations
+- Track design iterations
 
 ### 3. Supplier Management
 - Multiple suppliers per garment
-- Offer tracking and comparison
-- Sample set management
-- Supplier state progression
+- Offer tracking
+- Sample set management with status
+- Supplier state progression (OFFERED → SAMPLING → APPROVED → IN_STORE)
 
 ### 4. Lifecycle States
-- Concept → Design → Sampling → Production → In Stores
+- CONCEPT → DESIGN → SAMPLE → APPROVED → MASS_PRODUCTION
 - State transition validation
-- Audit trail for state changes
+- Delete protection for MASS_PRODUCTION garments
 
 ### 5. Business Rules
-- Incompatible attribute validation (e.g., nightwear ≠ running outfit)
-- Production garments cannot be deleted (soft delete)
-- State transition constraints
+- Incompatible attribute validation (e.g., nightwear ↔ running outfit)
+- Material percentage validation
+- Production garments cannot be deleted
 
 ## 🛠️ Development Commands
 
@@ -196,8 +233,6 @@ pnpm docker:logs      # View container logs
 cd backend
 pnpm dev              # Start dev server with hot reload
 pnpm build            # Compile TypeScript
-pnpm start            # Run compiled code
-pnpm typeorm          # Run TypeORM CLI commands
 ```
 
 ### Frontend
@@ -226,39 +261,44 @@ DB_DATABASE=fashion_plm
 VITE_API_URL=http://localhost:3000
 ```
 
-## 📝 API Endpoints (To Be Implemented)
+## 📝 API Endpoints
+
+Complete API documentation available in `API_TESTING.md`
 
 ### Garments
 - `GET /api/garments` - List all garments
-- `GET /api/garments/:id` - Get garment details
+- `GET /api/garments/:id` - Get garment with materials and attributes
 - `POST /api/garments` - Create new garment
 - `PUT /api/garments/:id` - Update garment
-- `DELETE /api/garments/:id` - Delete/soft-delete garment
+- `DELETE /api/garments/:id` - Delete garment (protected)
+- `GET /api/garments/:id/variations` - Get design variations
 
 ### Materials
 - `GET /api/materials` - List all materials
 - `POST /api/materials` - Create material
+- `POST /api/garments/:id/materials` - Add material to garment
 
 ### Attributes
 - `GET /api/attributes` - List all attributes
 - `POST /api/attributes` - Create attribute
+- `POST /api/attributes/validate` - Validate attribute compatibility
+- `POST /api/garments/:id/attributes` - Add attribute to garment
 
 ### Suppliers
 - `GET /api/suppliers` - List all suppliers
-- `POST /api/suppliers` - Create supplier
-- `GET /api/garments/:id/suppliers` - Get suppliers for garment
-- `POST /api/garments/:id/suppliers` - Add supplier to garment
+- `GET /api/suppliers/garment-suppliers/:garmentId` - Get suppliers for garment
 
 ## 🎯 Architectural Decisions
 
-### 1. TypeORM with MySQL
-- **Rationale**: Complex relational data (garments, materials, suppliers, attributes) benefits from RDBMS
-- **Benefits**: Strong typing, migration support, relationship management
-- **Trade-offs**: More setup than NoSQL, but better for data integrity
+### 1. MySQL2 with Raw SQL
+- **Rationale**: Direct control over queries, better performance
+- **Benefits**: No ORM overhead, explicit query optimization
+- **Implementation**: Connection pooling with cluster support
 
-### 2. Pino for Logging
-- **Rationale**: High-performance JSON logging with minimal overhead
-- **Benefits**: Structured logs, production-ready, excellent performance
+### 2. React with Tailwind CSS
+- **Why**: Modern, responsive UI with utility-first CSS
+- **Benefits**: Fast development, consistent design, mobile-first
+- **Components**: Modular component structure (List, Detail, Form)
 
 ### 3. Service Layer Architecture
 - **Why**: Separation of concerns, testability
@@ -272,37 +312,16 @@ VITE_API_URL=http://localhost:3000
 - **Validation**: Checked before INSERT/UPDATE operations
 - **Benefit**: Rules enforced regardless of API client
 
-### 5. Docker for MySQL Only
-- **Why**: Backend runs locally for faster development
-- **Benefit**: Hot reload, easier debugging, no volume mount issues
-- **Configuration**: MySQL on port 3307 to avoid conflicts with local installations
-
-### 6. Pino for Structured Logging
+### 5. Pino for Structured Logging
 - **Why**: Fast, structured JSON logging
-- **Benefit**: Better than console.log for production
 - **Features**: Request logging, error tracking, performance monitoring
 
-## 🔄 Next Steps
+## � Documentation
 
-1. **Define Database Schema**
-   - Create tables for Garments, Materials, Attributes, Suppliers
-   - Define relationships and constraints
-   - Set up migrations
-
-2. **Implement Business Logic**
-   - Lifecycle state machine
-   - Business rule validation engine
-   - Design evolution tracking
-
-3. **Build API Endpoints**
-   - RESTful CRUD operations
-   - Complex queries (filtering, sorting, pagination)
-   - Error handling and validation
-
-4. **Develop Frontend**
-   - Garment management UI
-   - Supplier workflow interface
-   - State visualization dashboard
+- `README.md` - This file
+- `API_TESTING.md` - Complete API documentation with curl examples
+- `PROJECT_SUMMARY.md` - Detailed project overview
+- `FRONTEND_GUIDE.md` - Frontend features and usage guide
 
 ## 📦 Docker Services
 
@@ -312,17 +331,7 @@ VITE_API_URL=http://localhost:3000
 - **Volume**: Persistent data storage
 - **Health Check**: Automatic startup verification
 
-### Backend Service
-- **Build**: ./backend/Dockerfile
-- **Port**: 3000
-- **Hot Reload**: Enabled via volume mount
-- **Depends On**: MySQL (waits for health check)
-
-### Frontend Service
-- **Build**: ./frontend/Dockerfile
-- **Port**: 5173
-- **Hot Reload**: Enabled via volume mount
-- **Depends On**: Backend
+**Note**: Backend and frontend run locally for development (not in Docker) for better hot reload and debugging experience.
 
 ## 🐛 Troubleshooting
 

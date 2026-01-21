@@ -4,7 +4,7 @@ import type {
   PoolConnection,
 } from "mysql2/promise";
 import type { CustomQueryResult } from "./pool";
-import { dbAuditLogger } from "../audit/dbAuditLogger";
+import { dbAuditLogger } from "../../audit/dbAuditLogger";
 
 export async function executeQuery<T extends CustomQueryResult>(
   DB: PoolNamespace,

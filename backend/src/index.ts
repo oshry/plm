@@ -2,11 +2,11 @@ import express from 'express';
 import cors from 'cors';
 import { config } from './config';
 import { logger, httpLogger } from './utils/logger';
-import { myappDB } from './db/pool';
-import garmentsRouter from './routes/garments';
-import materialsRouter from './routes/materials';
-import attributesRouter from './routes/attributes';
-import suppliersRouter from './routes/suppliers';
+import { myappDB } from './infra/db/pool';
+import garmentsRouter from './http/routes/garments';
+import materialsRouter from './http/routes/materials';
+import attributesRouter from './http/routes/attributes';
+import suppliersRouter from './http/routes/suppliers';
 
 const app = express();
 

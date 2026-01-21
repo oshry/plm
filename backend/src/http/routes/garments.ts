@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { GarmentService } from '../services/garmentService';
-import { AttributeService } from '../services/attributeService';
+import { GarmentService } from '../../application/usecases/garmentService';
+import { AttributeService } from '../../application/usecases/attributeService';
 
 const router = Router();
 const garmentService = new GarmentService();
