@@ -22,20 +22,36 @@ export class MaterialComposition {
   }
 
   async create(name: string): Promise<number> {
-    const [result] = await executeQuery<ResultSetHeader>(
-      myappDB,
-      'INSERT INTO materials (name) VALUES (?)',
-      [name]
-    );
-    return result.insertId;
+    try {
+      const [result] = await executeQuery<ResultSetHeader>(
+        myappDB,
+        'INSERT INTO materials (name) VALUES (?)',
+        [name]
+      );
+      return result.insertId;
+    } catch (error: any) {
+      // Handle duplicate key error
+      if (error.code === 'ER_DUP_ENTRY') {
+        throw new Error(`Material with name '${name}' already exists`);
+      }
+      throw error;
+    }
   }
 
   async delete(id: number): Promise<boolean> {
-    const [result] = await executeQuery<ResultSetHeader>(
-      myappDB,
-      'DELETE FROM materials WHERE id = ?',
-      [id]
-    );
-    return result.affectedRows > 0;
+    try {
+      const [result] = await executeQuery<ResultSetHeader>(
+        myappDB,
+        'DELETE FROM materials WHERE id = ?',
+        [id]
+      );
+      return result.affectedRows > 0;
+    } catch (error: any) {
+      // Handle foreign key constraint error
+      if (error.code === 'ER_ROW_IS_REFERENCED_2') {
+        throw new Error('Cannot delete material that is used by garments');
+      }
+      throw error;
+    }
   }
 }

@@ -76,10 +76,46 @@ export class SupplierWorkflow {
     return rows;
   }
 
+  private isValidStatusTransition(
+    currentStatus: SupplierStatus,
+    newStatus: SupplierStatus
+  ): boolean {
+    // Define allowed transitions: OFFERED → SAMPLING → APPROVED/REJECTED → IN_STORE
+    const allowedTransitions: Record<SupplierStatus, SupplierStatus[]> = {
+      [SupplierStatus.OFFERED]: [SupplierStatus.SAMPLING, SupplierStatus.REJECTED],
+      [SupplierStatus.SAMPLING]: [SupplierStatus.APPROVED, SupplierStatus.REJECTED],
+      [SupplierStatus.APPROVED]: [SupplierStatus.IN_STORE],
+      [SupplierStatus.REJECTED]: [], // Terminal state
+      [SupplierStatus.IN_STORE]: [], // Terminal state
+    };
+
+    return allowedTransitions[currentStatus]?.includes(newStatus) || false;
+  }
+
   async updateSupplierStatus(
     garmentSupplierId: number,
     status: SupplierStatus
   ): Promise<boolean> {
+    // Get current status
+    const [rows] = await executeQuery<RowDataPacket[]>(
+      myappDB,
+      'SELECT status FROM garment_suppliers WHERE id = ?',
+      [garmentSupplierId]
+    );
+
+    if (rows.length === 0) {
+      throw new Error('Garment supplier relationship not found');
+    }
+
+    const currentStatus = (rows[0] as any).status as SupplierStatus;
+
+    // Validate transition
+    if (!this.isValidStatusTransition(currentStatus, status)) {
+      throw new Error(
+        `Invalid status transition from ${currentStatus} to ${status}. Allowed workflow: OFFERED → SAMPLING → APPROVED/REJECTED → IN_STORE`
+      );
+    }
+
     const [result] = await executeQuery<ResultSetHeader>(
       myappDB,
       'UPDATE garment_suppliers SET status = ? WHERE id = ?',

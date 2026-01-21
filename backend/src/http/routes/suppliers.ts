@@ -102,7 +102,13 @@ router.put('/garment-suppliers/:id/status', async (req: Request, res: Response) 
     }
 
     res.json({ message: 'Status updated successfully' });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message?.includes('Invalid status transition')) {
+      return res.status(400).json({ error: error.message });
+    }
+    if (error.message?.includes('not found')) {
+      return res.status(404).json({ error: error.message });
+    }
     res.status(500).json({ error: 'Failed to update status' });
   }
 });

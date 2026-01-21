@@ -40,7 +40,10 @@ router.post('/', async (req: Request, res: Response) => {
     const material = await materialComposition.getById(id);
     
     res.status(201).json(material);
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message?.includes('already exists')) {
+      return res.status(409).json({ error: error.message });
+    }
     res.status(500).json({ error: 'Failed to create material' });
   }
 });
@@ -55,7 +58,10 @@ router.delete('/:id', async (req: Request, res: Response) => {
     }
 
     res.status(204).send();
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message?.includes('used by garments')) {
+      return res.status(409).json({ error: error.message });
+    }
     res.status(500).json({ error: 'Failed to delete material' });
   }
 });
