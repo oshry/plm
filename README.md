@@ -4,7 +4,7 @@ A full-stack Product Lifecycle Management system for the fashion industry, built
 
 ## 🚀 Current Status
 
-**✅ Backend API Complete** - All endpoints implemented and tested
+**✅ Backend MVP API** - Core endpoints implemented and tested
 - Full CRUD operations for garments, materials, attributes, suppliers
 - Lifecycle state management with validation
 - Business rules enforcement (attribute incompatibilities)
@@ -31,19 +31,19 @@ plm/
 │   ├── src/
 │   │   ├── http/           # HTTP layer
 │   │   │   ├── routes/     # API route definitions
-│   │   │   ├── controllers/# Request handlers (empty for now)
-│   │   │   └── middleware/ # HTTP middleware (empty for now)
+│   │   │   ├── controllers/# Request handlers (future)
+│   │   │   └── middleware/ # HTTP middleware (future)
 │   │   ├── application/    # Application layer
 │   │   │   ├── usecases/   # Business logic orchestration
-│   │   │   └── errors/     # Application errors (empty for now)
+│   │   │   └── errors/     # Application errors (future)
 │   │   ├── domain/         # Domain layer
-│   │   │   ├── rules/      # Business rules (empty for now)
+│   │   │   ├── rules/      # Business rules (future)
 │   │   │   └── types/      # Domain types and enums
 │   │   ├── infra/          # Infrastructure layer
 │   │   │   ├── db/         # Database connection and queries
 │   │   │   │   ├── pool.ts # MySQL2 connection pool
 │   │   │   │   └── sql/    # SQL schema and migrations
-│   │   │   └── repositories/# Data access (empty for now)
+│   │   │   └── repositories/# Data access (future)
 │   │   ├── config/         # Configuration management
 │   │   ├── utils/          # Utilities (logger, etc.)
 │   │   └── index.ts        # Application entry point
@@ -84,17 +84,10 @@ plm/
    ```bash
    docker-compose up -d mysql
    ```
-
-3. **Initialize database**
-   ```bash
-   # Load schema
-   docker exec -i myapp-db mysql -u plm_user -pplm_password fashion_plm < backend/src/db/init.sql
    
-   # Load seed data
-   docker exec -i myapp-db mysql -u plm_user -pplm_password fashion_plm < backend/src/db/seed.sql
-   ```
+   *Note: On first boot, MySQL will automatically initialize with schema and seed data from `/docker-entrypoint-initdb.d`*
 
-4. **Configure environment variables**
+3. **Configure environment variables**
    ```bash
    # Backend
    cp backend/.env.example backend/.env
@@ -103,19 +96,19 @@ plm/
    cp frontend/.env.example frontend/.env
    ```
 
-5. **Start backend**
+4. **Start backend**
    ```bash
    cd backend
    pnpm dev
    ```
 
-6. **Start frontend**
+5. **Start frontend**
    ```bash
    cd frontend
    pnpm dev
    ```
 
-7. **Access the application**
+6. **Access the application**
    - Frontend: http://localhost:5173
    - Backend API: http://localhost:3000
    - Health check: http://localhost:3000/health
@@ -216,6 +209,16 @@ The database includes 8 tables with proper relationships:
 - Incompatible attribute validation (e.g., nightwear ↔ running outfit)
 - Material percentage validation
 - Production garments cannot be deleted
+
+## 🔒 Business Invariants
+
+The system enforces the following business rules at the data layer:
+
+1. **Mass production garments cannot be deleted** - Garments in `MASS_PRODUCTION` state are protected from deletion
+2. **Incompatible attributes cannot coexist** - Validated via `attribute_incompatibilities` table before assignment
+3. **Lifecycle transitions are validated** - State changes follow defined progression (CONCEPT → DESIGN → SAMPLE → APPROVED → MASS_PRODUCTION)
+4. **Material percentages must sum to 100** - Enforced when adding/updating garment materials
+5. **Supplier status transitions are validated** - Status changes follow workflow (OFFERED → SAMPLING → APPROVED → IN_STORE)
 
 ## 🛠️ Development Commands
 
