@@ -3,7 +3,7 @@ import { myappDB } from '../../infra/db/pool';
 import { executeQuery } from '../../infra/db/query';
 import { Supplier, GarmentSupplier, SupplierStatus } from '../../domain/types';
 
-export class SupplierService {
+export class SupplierWorkflow {
   async getAll(): Promise<Supplier[]> {
     const [rows] = await executeQuery<RowDataPacket[]>(
       myappDB,

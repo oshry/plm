@@ -4,7 +4,7 @@ import { executeQuery, transactionQuery } from '../../infra/db/query';
 import { withTransaction } from '../../infra/db/transaction';
 import { Garment, LifecycleState } from '../../domain/types';
 
-export class GarmentService {
+export class GarmentAggregate {
   async getAll(): Promise<Garment[]> {
     const [rows] = await executeQuery<RowDataPacket[]>(
       myappDB,
@@ -53,25 +53,77 @@ export class GarmentService {
       change_note?: string;
     }
   ): Promise<boolean> {
-    // Validate material percentages for APPROVED or MASS_PRODUCTION states
+    // Wrap lifecycle transition to APPROVED/MASS_PRODUCTION in transaction with row lock
     if (
       data.lifecycle_state === LifecycleState.APPROVED ||
       data.lifecycle_state === LifecycleState.MASS_PRODUCTION
     ) {
-      const [rows] = await executeQuery<RowDataPacket[]>(
-        myappDB,
-        'SELECT SUM(percentage) as total FROM garment_materials WHERE garment_id = ?',
-        [id]
-      );
-
-      const total = (rows[0] as any)?.total || 0;
-      if (total !== 100) {
-        throw new Error(
-          `Cannot transition to ${data.lifecycle_state}: material percentages must sum to 100% (current: ${total}%)`
+      return withTransaction(myappDB, async (conn) => {
+        // Lock the garment row to prevent concurrent modifications
+        const [garmentRows] = await transactionQuery<RowDataPacket[]>(
+          conn,
+          'SELECT id, lifecycle_state FROM garments WHERE id = ? FOR UPDATE',
+          [id]
         );
-      }
+
+        if (garmentRows.length === 0) {
+          throw new Error('Garment not found');
+        }
+
+        // Re-check material percentages within the transaction
+        const [materialRows] = await transactionQuery<RowDataPacket[]>(
+          conn,
+          'SELECT SUM(percentage) as total FROM garment_materials WHERE garment_id = ?',
+          [id]
+        );
+
+        const rawTotal = (materialRows[0] as any)?.total;
+        const total = Number(rawTotal ?? 0);
+
+        // Allow tiny float issues if decimals exist (e.g., 33.33+33.33+33.34)
+        const EPS = 0.001;
+        if (Math.abs(total - 100) > EPS) {
+          throw new Error(
+            `Cannot transition to ${data.lifecycle_state}: material percentages must sum to 100% (current: ${total}%)`
+          );
+        }
+
+        // Build and execute the update
+        const updates: string[] = [];
+        const values: any[] = [];
+
+        if (data.name !== undefined) {
+          updates.push('name = ?');
+          values.push(data.name);
+        }
+        if (data.category !== undefined) {
+          updates.push('category = ?');
+          values.push(data.category);
+        }
+        if (data.lifecycle_state !== undefined) {
+          updates.push('lifecycle_state = ?');
+          values.push(data.lifecycle_state);
+        }
+        if (data.change_note !== undefined) {
+          updates.push('change_note = ?');
+          values.push(data.change_note);
+        }
+
+        if (updates.length === 0) return false;
+
+        values.push(id);
+
+        const [result] = await transactionQuery<ResultSetHeader>(
+          conn,
+          `UPDATE garments SET ${updates.join(', ')} WHERE id = ?`,
+          values
+        );
+
+        return result.affectedRows > 0;
+      });
     }
 
+    // For non-critical updates, use simple executeQuery
     const updates: string[] = [];
     const values: any[] = [];
 

@@ -1,12 +1,12 @@
 import { Router, Request, Response } from 'express';
-import { MaterialService } from '../../application/usecases/materialService';
+import { MaterialComposition } from '../../application/usecases/materialComposition';
 
 const router = Router();
-const materialService = new MaterialService();
+const materialComposition = new MaterialComposition();
 
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const materials = await materialService.getAll();
+    const materials = await materialComposition.getAll();
     res.json(materials);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch materials' });
@@ -16,7 +16,7 @@ router.get('/', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
-    const material = await materialService.getById(id);
+    const material = await materialComposition.getById(id);
     
     if (!material) {
       return res.status(404).json({ error: 'Material not found' });
@@ -36,8 +36,8 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Name is required' });
     }
 
-    const id = await materialService.create(name);
-    const material = await materialService.getById(id);
+    const id = await materialComposition.create(name);
+    const material = await materialComposition.getById(id);
     
     res.status(201).json(material);
   } catch (error) {
@@ -48,7 +48,7 @@ router.post('/', async (req: Request, res: Response) => {
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
-    const deleted = await materialService.delete(id);
+    const deleted = await materialComposition.delete(id);
 
     if (!deleted) {
       return res.status(404).json({ error: 'Material not found' });

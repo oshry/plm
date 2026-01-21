@@ -3,7 +3,7 @@ import { myappDB } from '../../infra/db/pool';
 import { executeQuery } from '../../infra/db/query';
 import { Material } from '../../domain/types';
 
-export class MaterialService {
+export class MaterialComposition {
   async getAll(): Promise<Material[]> {
     const [rows] = await executeQuery<RowDataPacket[]>(
       myappDB,

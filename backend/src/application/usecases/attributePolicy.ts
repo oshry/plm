@@ -3,7 +3,7 @@ import { myappDB } from '../../infra/db/pool';
 import { executeQuery } from '../../infra/db/query';
 import { Attribute } from '../../domain/types';
 
-export class AttributeService {
+export class AttributePolicy {
   async getAll(): Promise<Attribute[]> {
     const [rows] = await executeQuery<RowDataPacket[]>(
       myappDB,
