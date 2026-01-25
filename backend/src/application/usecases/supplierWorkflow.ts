@@ -1,45 +1,26 @@
-import { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
-import { myappDB } from '../../infra/db/pool';
-import { executeQuery } from '../../infra/db/query';
-import { Supplier, GarmentSupplier, SupplierStatus } from '../../domain/types';
+import { Supplier, SupplierStatus } from '../../domain/types';
+import { SupplierRepository } from '../../infra/repositories/SupplierRepository';
 
 export class SupplierWorkflow {
+  constructor(private supplierRepo: SupplierRepository) {}
+
   async getAll(): Promise<Supplier[]> {
-    const [rows] = await executeQuery<RowDataPacket[]>(
-      myappDB,
-      'SELECT * FROM suppliers ORDER BY name'
-    );
-    return rows as Supplier[];
+    return await this.supplierRepo.findAll();
   }
 
   async getById(id: number): Promise<Supplier | null> {
-    const [rows] = await executeQuery<RowDataPacket[]>(
-      myappDB,
-      'SELECT * FROM suppliers WHERE id = ?',
-      [id]
-    );
-    return rows.length > 0 ? (rows[0] as Supplier) : null;
+    return await this.supplierRepo.findById(id);
   }
 
   async create(data: {
     name: string;
     contact_email?: string;
   }): Promise<number> {
-    const [result] = await executeQuery<ResultSetHeader>(
-      myappDB,
-      'INSERT INTO suppliers (name, contact_email) VALUES (?, ?)',
-      [data.name, data.contact_email || null]
-    );
-    return result.insertId;
+    return await this.supplierRepo.create(data);
   }
 
   async delete(id: number): Promise<boolean> {
-    const [result] = await executeQuery<ResultSetHeader>(
-      myappDB,
-      'DELETE FROM suppliers WHERE id = ?',
-      [id]
-    );
-    return result.affectedRows > 0;
+    return await this.supplierRepo.delete(id);
   }
 
   async addToGarment(
@@ -47,81 +28,18 @@ export class SupplierWorkflow {
     supplierId: number,
     status: SupplierStatus = SupplierStatus.OFFERED
   ): Promise<number> {
-    const [result] = await executeQuery<ResultSetHeader>(
-      myappDB,
-      `INSERT INTO garment_suppliers (garment_id, supplier_id, status)
-       VALUES (?, ?, ?)`,
-      [garmentId, supplierId, status]
-    );
-    return result.insertId;
+    return await this.supplierRepo.addToGarment(garmentId, supplierId, status);
   }
 
   async getGarmentSuppliers(garmentId: number): Promise<any[]> {
-    const [rows] = await executeQuery<RowDataPacket[]>(
-      myappDB,
-      `SELECT 
-        gs.id,
-        gs.status,
-        gs.created_at,
-        gs.updated_at,
-        s.id as supplier_id,
-        s.name as supplier_name,
-        s.contact_email
-       FROM garment_suppliers gs
-       JOIN suppliers s ON gs.supplier_id = s.id
-       WHERE gs.garment_id = ?
-       ORDER BY gs.created_at DESC`,
-      [garmentId]
-    );
-    return rows;
-  }
-
-  private isValidStatusTransition(
-    currentStatus: SupplierStatus,
-    newStatus: SupplierStatus
-  ): boolean {
-    // Define allowed transitions: OFFERED → SAMPLING → APPROVED/REJECTED → IN_STORE
-    const allowedTransitions: Record<SupplierStatus, SupplierStatus[]> = {
-      [SupplierStatus.OFFERED]: [SupplierStatus.SAMPLING, SupplierStatus.REJECTED],
-      [SupplierStatus.SAMPLING]: [SupplierStatus.APPROVED, SupplierStatus.REJECTED],
-      [SupplierStatus.APPROVED]: [SupplierStatus.IN_STORE],
-      [SupplierStatus.REJECTED]: [], // Terminal state
-      [SupplierStatus.IN_STORE]: [], // Terminal state
-    };
-
-    return allowedTransitions[currentStatus]?.includes(newStatus) || false;
+    return await this.supplierRepo.getGarmentSuppliers(garmentId);
   }
 
   async updateSupplierStatus(
     garmentSupplierId: number,
     status: SupplierStatus
   ): Promise<boolean> {
-    // Get current status
-    const [rows] = await executeQuery<RowDataPacket[]>(
-      myappDB,
-      'SELECT status FROM garment_suppliers WHERE id = ?',
-      [garmentSupplierId]
-    );
-
-    if (rows.length === 0) {
-      throw new Error('Garment supplier relationship not found');
-    }
-
-    const currentStatus = (rows[0] as any).status as SupplierStatus;
-
-    // Validate transition
-    if (!this.isValidStatusTransition(currentStatus, status)) {
-      throw new Error(
-        `Invalid status transition from ${currentStatus} to ${status}. Allowed workflow: OFFERED → SAMPLING → APPROVED/REJECTED → IN_STORE`
-      );
-    }
-
-    const [result] = await executeQuery<ResultSetHeader>(
-      myappDB,
-      'UPDATE garment_suppliers SET status = ? WHERE id = ?',
-      [status, garmentSupplierId]
-    );
-    return result.affectedRows > 0;
+    return await this.supplierRepo.updateSupplierStatus(garmentSupplierId, status);
   }
 
   async addOffer(data: {
@@ -130,42 +48,18 @@ export class SupplierWorkflow {
     currency?: string;
     lead_time_days: number;
   }): Promise<number> {
-    const [result] = await executeQuery<ResultSetHeader>(
-      myappDB,
-      `INSERT INTO supplier_offers (garment_supplier_id, price, currency, lead_time_days)
-       VALUES (?, ?, ?, ?)`,
-      [
-        data.garment_supplier_id,
-        data.price,
-        data.currency || 'USD',
-        data.lead_time_days,
-      ]
-    );
-    return result.insertId;
+    return await this.supplierRepo.addOffer(data);
   }
 
   async getOffers(garmentSupplierId: number): Promise<any[]> {
-    const [rows] = await executeQuery<RowDataPacket[]>(
-      myappDB,
-      `SELECT * FROM supplier_offers 
-       WHERE garment_supplier_id = ?
-       ORDER BY created_at DESC`,
-      [garmentSupplierId]
-    );
-    return rows;
+    return await this.supplierRepo.getOffers(garmentSupplierId);
   }
 
   async addSampleSet(data: {
     garment_supplier_id: number;
     notes?: string;
   }): Promise<number> {
-    const [result] = await executeQuery<ResultSetHeader>(
-      myappDB,
-      `INSERT INTO sample_sets (garment_supplier_id, notes)
-       VALUES (?, ?)`,
-      [data.garment_supplier_id, data.notes || null]
-    );
-    return result.insertId;
+    return await this.supplierRepo.addSampleSet(data);
   }
 
   async updateSampleStatus(
@@ -173,37 +67,10 @@ export class SupplierWorkflow {
     status: string,
     notes?: string
   ): Promise<boolean> {
-    const updates = ['status = ?'];
-    const values: any[] = [status];
-
-    if (status === 'RECEIVED' || status === 'PASSED' || status === 'FAILED') {
-      updates.push('received_at = CURRENT_TIMESTAMP');
-    }
-
-    if (notes !== undefined) {
-      updates.push('notes = ?');
-      values.push(notes);
-    }
-
-    values.push(sampleId);
-
-    const [result] = await executeQuery<ResultSetHeader>(
-      myappDB,
-      `UPDATE sample_sets SET ${updates.join(', ')} WHERE id = ?`,
-      values
-    );
-
-    return result.affectedRows > 0;
+    return await this.supplierRepo.updateSampleStatus(sampleId, status, notes);
   }
 
   async getSamples(garmentSupplierId: number): Promise<any[]> {
-    const [rows] = await executeQuery<RowDataPacket[]>(
-      myappDB,
-      `SELECT * FROM sample_sets 
-       WHERE garment_supplier_id = ?
-       ORDER BY id DESC`,
-      [garmentSupplierId]
-    );
-    return rows;
+    return await this.supplierRepo.getSamples(garmentSupplierId);
   }
 }
