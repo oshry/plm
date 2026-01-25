@@ -43,7 +43,7 @@ const connectionConfig = {
   ...getDbHost(),
   user: config.DATABASE.USER,
   password: config.DATABASE.PASSWORD,
-  timezone: "UTC",
+  timezone: "+00:00",
   connectTimeout: 10_000,
   debug: false,
   multipleStatements: false,
@@ -54,12 +54,10 @@ const poolConfig = {
   waitForConnections: true,
   connectionLimit: 20,
   queueLimit: 50,
-  acquireTimeout: 10_000,
   enableKeepAlive: true,
   keepAliveInitialDelay: 60_000,
   idleTimeout: 30_000,
   maxIdle: 10,
-  minIdle: 2,
 };
 
 export const poolCluster: PoolCluster = mysql.createPoolCluster(
