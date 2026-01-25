@@ -30,20 +30,23 @@ plm/
 ├── backend/                 # Node.js API server
 │   ├── src/
 │   │   ├── http/           # HTTP layer
-│   │   │   ├── routes/     # API route definitions
-│   │   │   ├── controllers/# Request handlers (future)
-│   │   │   └── middleware/ # HTTP middleware (future)
+│   │   │   ├── routes/     # API route definitions with DI
+│   │   │   ├── controllers/# Request/response handlers
+│   │   │   ├── middleware/ # Joi validation middleware
+│   │   │   └── validators/ # Joi validation schemas
 │   │   ├── application/    # Application layer
-│   │   │   ├── usecases/   # Business logic orchestration
-│   │   │   └── errors/     # Application errors (future)
+│   │   │   └── usecases/   # Business logic orchestration
 │   │   ├── domain/         # Domain layer
-│   │   │   ├── rules/      # Business rules (future)
+│   │   │   ├── rules/      # Business validation rules
+│   │   │   ├── entities/   # Value objects
 │   │   │   └── types/      # Domain types and enums
 │   │   ├── infra/          # Infrastructure layer
 │   │   │   ├── db/         # Database connection and queries
 │   │   │   │   ├── pool.ts # MySQL2 connection pool
+│   │   │   │   ├── query.ts# Query execution helpers
+│   │   │   │   ├── transaction.ts # Transaction management
 │   │   │   │   └── sql/    # SQL schema and migrations
-│   │   │   └── repositories/# Data access (future)
+│   │   │   └── repositories/# Data access layer
 │   │   ├── config/         # Configuration management
 │   │   ├── utils/          # Utilities (logger, etc.)
 │   │   └── index.ts        # Application entry point
@@ -293,29 +296,75 @@ Complete API documentation available in `API_TESTING.md`
 
 ## 🎯 Architectural Decisions
 
-### 1. MySQL2 with Raw SQL
+### 1. Clean Architecture (Layered Architecture)
+- **Structure**: Routes → Controller → Use Case → Repository → Database
+- **Benefits**: 
+  - Clear separation of concerns
+  - Testability at each layer
+  - Business logic isolated from infrastructure
+  - Easy to swap implementations
+- **Implementation**:
+  - **Routes**: Dependency injection, Joi validation middleware
+  - **Controllers**: HTTP handling, status codes, error responses
+  - **Use Cases**: Business logic orchestration
+  - **Repositories**: Data access, SQL queries, transactions
+
+### 2. Repository Pattern
+- **Why**: Abstract data access from business logic
+- **Benefits**: 
+  - Single source of truth for data operations
+  - Easier to test business logic
+  - Database queries isolated
+- **Implementation**: One repository per domain entity (Garment, Material, Attribute, Supplier)
+
+### 3. Joi Validation
+- **Why**: Robust input validation with clear error messages
+- **Benefits**:
+  - Type-safe validation
+  - Custom error messages
+  - Validation middleware reusable across routes
+- **Implementation**: Schema-based validation for all request bodies, params, and queries
+
+### 4. MySQL2 with Raw SQL
 - **Rationale**: Direct control over queries, better performance
 - **Benefits**: No ORM overhead, explicit query optimization
-- **Implementation**: Connection pooling with cluster support
+- **Implementation**: 
+  - Connection pooling with cluster support
+  - Transaction management for critical operations
+  - Row-level locking (`FOR UPDATE`) for race condition prevention
 
-### 2. React with Tailwind CSS
+### 5. Domain Layer (Selective Use)
+- **Why**: Encapsulate business rules independent of infrastructure
+- **Implementation**: 
+  - Value objects (e.g., `AttributeName`)
+  - Business validation rules (e.g., `AttributeValidationRules`)
+  - Used where reusable validation logic is needed
+- **Pattern**: Not over-engineered - only used where it adds clear value
+
+### 6. React with Tailwind CSS
 - **Why**: Modern, responsive UI with utility-first CSS
 - **Benefits**: Fast development, consistent design, mobile-first
 - **Components**: Modular component structure (List, Detail, Form)
 
-### 3. Service Layer Architecture
-- **Why**: Separation of concerns, testability
-- **Structure**: Routes → Services → Database
-- **Benefit**: Business logic isolated from HTTP layer
-- **Pattern**: Each domain (garments, materials, etc.) has its own service
+### 7. Transaction Safety
+- **Why**: Ensure data consistency for critical operations
+- **Implementation**:
+  - Material percentage validation (must sum to 100%)
+  - Attribute incompatibility checks
+  - Lifecycle state transitions with validation
+  - Row-level locking to prevent race conditions
 
-### 4. Business Rules in Database
+### 8. Business Rules Enforcement
+- **Where**: Primarily in Repository layer
 - **Why**: Data integrity at the source
-- **Implementation**: `attribute_incompatibilities` table
-- **Validation**: Checked before INSERT/UPDATE operations
+- **Examples**:
+  - Attribute incompatibilities checked in transactions
+  - Material percentages validated before commit
+  - Lifecycle state transitions validated
+  - Supplier status workflow enforced
 - **Benefit**: Rules enforced regardless of API client
 
-### 5. Pino for Structured Logging
+### 9. Pino for Structured Logging
 - **Why**: Fast, structured JSON logging
 - **Features**: Request logging, error tracking, performance monitoring
 
